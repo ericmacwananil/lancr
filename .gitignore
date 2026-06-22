@@ -1,6 +1,3 @@
-backend/node_modules/
-backend/.env
-
-frontend/node_modules/
-
-*.log
+node_modules/
+*.class
+.DS_Store

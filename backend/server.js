@@ -33,7 +33,18 @@ app.use(
 
 //Body parser
 // NOTE: Stripe webhook needs raw body — we'll override this in paymentRoutes later
-app.use(express.json());
+app.use((req, res, next) => {
+  /*
+   * If the request is for the Stripe webhook route,
+   * skip express.json() and let the route handle it
+   * with express.raw() instead.
+   */
+  if (req.originalUrl === "/api/payments/webhook") {
+    next(); // skip JSON parsing for webhook
+  } else {
+    express.json()(req, res, next); // parse JSON for all other routes
+  }
+});
 app.use(express.urlencoded({ extended: true }));
 
 

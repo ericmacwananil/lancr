@@ -61,13 +61,17 @@ router.get("/health", (req, res) => {
 
 //Features routes 
 router.use("/auth", require("./authRoutes"));
-
+router.use("/users", require("./userRoutes"));
+router.use("/jobs", require("./jobRoutes"));
+router.use("/bids", require("./bidRoutes"));
+router.use("/contracts", require("./contractRoutes"));
+router.use("/payments", request("./paymentRoutes"));
 
 // More routes added here as we build features:
-// router.use("/jobs", require("./jobRoutes"));
-// router.use("/bids", require("./bidRoutes"));
-// router.use("/contracts", require("./contractRoutes"));
-// router.use("/payments", request("./paymentRoutes"));
+
+
+
+
 // router.use("/reviews", require("./reviewRoutes"));
 // router.use("/admin", require("./adminRoutes"));
 
