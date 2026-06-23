@@ -1,52 +1,42 @@
-// Helps find bugs during development in react
-import { StrictMode } from 'react'  
-// Creates the React application inside the HTML page.
-import { createRoot } from 'react-dom/client'
-// enables routing
-import { BrowserRouter  } from 'react-router-dom'
-//QueryClient - to handle api data
-//QueryClient - Giving React Query to entire app.
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-// React Query Inspector 🔍
-// Only developers use it.
-// Users never see it.
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { Toaster } from 'sonner';
+import { Toaster } from "sonner";
 
-import App from "./App"
+import App from "./App";
+import ErrorBoundary from "./components/ErrorBoundary";
 import "./index.css";
-
-
-
-// react Query global config
 
 const queryClient = new QueryClient({
   defaultOptions: {
-  queries: {
-    staleTime: 1000 * 60 * 5, //data stay fresh for 5 minutes
-    retry: 1,     //if retry fails, do one more time 
-
-// User switches tab
-// Comes back
-// ↓
-// Don't call API again
-    refetchOnWindowFocus: false, 
-  },
-  mutations: {
-    retry: 0, //mutations means if post,put delete  fails dont retry automatically
-  },
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 0,
+    },
   },
 });
 
 createRoot(document.getElementById("root")).render(
-    <StrictMode>
+  <StrictMode>
+    {/*
+     * ErrorBoundary wraps EVERYTHING.
+     * Any crash anywhere in the app is caught here.
+     * Without this, a crash shows a blank white screen.
+     */}
+    <ErrorBoundary>
       <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-          <App/> //This is your actual website.
-          <Toaster position= "top-right" richColors/>
-          {/* DevTools: only visible in development */}
-          <ReactQueryDevtools initialIsOpen={false}/>
-      </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          <App />
+          <Toaster position="top-right" richColors />
+          <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
       </BrowserRouter>
-    </StrictMode>
+    </ErrorBoundary>
+  </StrictMode>
 );

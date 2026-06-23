@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Contract = require("../models/Contract");
 const Bid = require("../models/Bid");
 const Job = require("../models/Job");
+const User = require("../models/User");
 
 /*
  * WHAT IS THIS FILE?
@@ -416,4 +417,313 @@ const submitWork = async (req, res) => {
 };
 
 
-module.exports = { acceptBid, getContractById, getMyContracts, submitWork };
+
+
+/*
+ * ADD this to your existing contractController.js
+ * Also add User import at the top if not already there:
+ * const User = require("../models/User");
+ */
+
+
+
+// ─── RELEASE FUNDS (ACID TRANSACTION #2) ─────────────────────
+/*
+ * @route   POST /api/contracts/:id/release
+ * @access  Private — Client only
+ *
+ * ─── WHY ACID HERE? ──────────────────────────────────────────
+ *
+ * When client releases funds, 3 things must happen TOGETHER:
+ *
+ * a) Contract status → "completed"
+ * b) Freelancer earnings → += agreedAmount  (they get paid!)
+ * c) Job status → "archived"
+ *
+ * WITHOUT ACID — danger scenario:
+ * Operation (a) succeeds → contract is "completed"
+ * Operation (b) succeeds → freelancer earnings updated
+ * Operation (c) FAILS    → job still shows "under_review"
+ *
+ * Now the data is broken:
+ * - Contract says completed ✅
+ * - Freelancer got paid ✅
+ * - But job is still showing as active ❌
+ *
+ * WITH ACID:
+ * If (c) fails → (a) and (b) are ROLLED BACK automatically.
+ * DB stays clean. Client sees an error and can try again.
+ * No money is transferred until ALL 3 succeed.
+ *
+ * THIS IS EXACTLY WHAT INTERVIEWERS WANT TO HEAR. ⭐
+ */
+const releaseFunds = async (req, res) => {
+  let session = null;
+
+  try {
+    // ── Step 1: Find and validate the contract ─────────────
+    const contract = await Contract.findById(req.params.id);
+
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: "Contract not found",
+      });
+    }
+
+    // Only the client on this contract can release funds
+    if (contract.client.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the client can release funds",
+      });
+    }
+
+    /*
+     * Can only release funds when freelancer has submitted work
+     * and contract is "under_review".
+     *
+     * "funded" → freelancer hasn't submitted yet, can't release
+     * "completed" → already released, can't release again
+     * "pending_payment" → not even paid yet
+     */
+    if (contract.status !== "under_review") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot release funds. Contract status is: ${contract.status}`,
+      });
+    }
+
+    // ── Step 2: Start MongoDB Session ─────────────────────
+    /*
+     * Same pattern as Feature 6 (acceptBid).
+     * session = the "safety bubble" around our 3 operations.
+     */
+    session = await mongoose.startSession();
+
+    await session.withTransaction(async () => {
+
+      // ── Operation A: Update Contract → "completed" ───────
+      /*
+       * { session } links this to the transaction.
+       * If B or C fails, this gets rolled back.
+       */
+      await Contract.findByIdAndUpdate(
+        contract._id,
+        { $set: { status: "completed" } },
+        { session } // ← CRITICAL
+      );
+
+      // ── Operation B: Add earnings to Freelancer ──────────
+      /*
+       * $inc is MongoDB's increment operator.
+       * $inc: { earnings: 500 } → earnings = earnings + 500
+       *
+       * WHY $inc INSTEAD OF $set?
+       * $set: { earnings: 500 } → REPLACES earnings with 500
+       *   (wrong! erases previous earnings)
+       *
+       * $inc: { earnings: 500 } → ADDS 500 to existing earnings
+       *   (correct! accumulates earnings over time)
+       *
+       * Example:
+       * Freelancer had $1200 earnings.
+       * $inc: { earnings: 500 } → now has $1700. ✅
+       * $set: { earnings: 500 } → now has $500. ❌ (lost $1200!)
+       *
+       * contract.agreedAmount = the bid amount the client accepted.
+       */
+      await User.findByIdAndUpdate(
+        contract.freelancer,
+        { $inc: { earnings: contract.agreedAmount } },
+        { session } // ← CRITICAL
+      );
+
+      // ── Operation C: Update Job → "archived" ────────────
+      /*
+       * Job is archived — it's permanently closed.
+       * No more bids, no more changes.
+       * Shows up in history but not in active job feed.
+       */
+      await Job.findByIdAndUpdate(
+        contract.job,
+        { $set: { status: "archived" } },
+        { session } // ← CRITICAL
+      );
+
+      /*
+       * If all 3 operations reach here without throwing:
+       * → withTransaction() calls commitTransaction()
+       * → All 3 changes are permanently saved to MongoDB
+       * → Freelancer officially gets paid ✅
+       *
+       * If ANY operation throws an error:
+       * → withTransaction() calls abortTransaction()
+       * → All 3 changes are undone
+       * → DB stays in "under_review" state
+       * → Client sees error and can try again
+       */
+    });
+
+    // ── Step 3: Fetch updated contract for response ────────
+    const updatedContract = await Contract.findById(contract._id)
+      .populate("job", "title budget")
+      .populate("client", "name email")
+      .populate("freelancer", "name email earnings");
+
+    return res.status(200).json({
+      success: true,
+      message: "Funds released successfully! Contract completed. 🎉",
+      data: { contract: updatedContract },
+    });
+
+  } catch (error) {
+    console.error("releaseFunds ACID transaction error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to release funds. All changes have been rolled back.",
+    });
+
+  } finally {
+    /*
+     * Always end the session — same as Feature 6.
+     * Runs whether success or error.
+     */
+    if (session) {
+      await session.endSession();
+    }
+  }
+};
+
+
+
+
+/*
+ * ADD this too — for the "Request Revision" button.
+ * Simple status update, no ACID needed (single operation).
+ *
+ * @route   POST /api/contracts/:id/revision
+ * @access  Private — Client only
+ *
+ * When client requests revision:
+ * Contract status goes back to "funded"
+ * → freelancer can submit new work again.
+ */
+const requestRevision = async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: "Contract not found",
+      });
+    }
+
+    // Only the client can request revision
+    if (contract.client.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the client can request a revision",
+      });
+    }
+
+    // Can only request revision when work is under review
+    if (contract.status !== "under_review") {
+      return res.status(400).json({
+        success: false,
+        message: "Can only request revision when work is under review",
+      });
+    }
+
+    /*
+     * Go back to "funded" status.
+     * This means the freelancer's work was rejected.
+     * They need to fix and resubmit.
+     * Also clear the old delivery file so they upload fresh work.
+     */
+    contract.status = "funded";
+    contract.deliveryFile = ""; // clear old submission
+    await contract.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Revision requested. Freelancer will be notified.",
+      data: { contract },
+    });
+
+  } catch (error) {
+    console.error("requestRevision error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ADD to exports:
+// module.exports = {
+//   acceptBid, getContractById, getMyContracts,
+//   submitWork, releaseFunds, requestRevision
+// };/*
+//  * ADD this too — for the "Request Revision" button.
+//  * Simple status update, no ACID needed (single operation).
+//  *
+//  * @route   POST /api/contracts/:id/revision
+//  * @access  Private — Client only
+//  *
+//  * When client requests revision:
+//  * Contract status goes back to "funded"
+//  * → freelancer can submit new work again.
+//  */
+const requestRevision = async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: "Contract not found",
+      });
+    }
+
+    // Only the client can request revision
+    if (contract.client.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the client can request a revision",
+      });
+    }
+
+    // Can only request revision when work is under review
+    if (contract.status !== "under_review") {
+      return res.status(400).json({
+        success: false,
+        message: "Can only request revision when work is under review",
+      });
+    }
+
+    /*
+     * Go back to "funded" status.
+     * This means the freelancer's work was rejected.
+     * They need to fix and resubmit.
+     * Also clear the old delivery file so they upload fresh work.
+     */
+    contract.status = "funded";
+    contract.deliveryFile = ""; // clear old submission
+    await contract.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Revision requested. Freelancer will be notified.",
+      data: { contract },
+    });
+
+  } catch (error) {
+    console.error("requestRevision error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
+
+
+
+module.exports = { acceptBid, getContractById, getMyContracts, submitWork, releaseFunds, requestRevision };

@@ -47,32 +47,48 @@
 
 
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 
-//Health check
+/*
+ * Enhanced /health route.
+ * Returns server status + MongoDB connection state.
+ * Used by Render/Railway to check if the app is alive.
+ * Also useful for debugging production issues.
+ *
+ * MongoDB connection states:
+ * 0 = disconnected
+ * 1 = connected ✅
+ * 2 = connecting
+ * 3 = disconnecting
+ */
 router.get("/health", (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: "Server Is Running",
-        environment: process.env.NODE_ENV,
-        timestamp: new Date().toISOString(),
-    });
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting",
+  }[dbState] || "unknown";
+
+  res.status(200).json({
+    success: true,
+    message: "Server is running",
+    server: "online",
+    database: dbStatus,
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString(),
+    uptime: `${Math.floor(process.uptime())}s`, // how long server has been running
+  });
 });
 
-//Features routes 
-router.use("/auth", require("./authRoutes"));
-router.use("/users", require("./userRoutes"));
-router.use("/jobs", require("./jobRoutes"));
-router.use("/bids", require("./bidRoutes"));
+router.use("/auth",      require("./authRoutes"));
+router.use("/users",     require("./userRoutes"));
+router.use("/jobs",      require("./jobRoutes"));
+router.use("/bids",      require("./bidRoutes"));
 router.use("/contracts", require("./contractRoutes"));
-router.use("/payments", request("./paymentRoutes"));
-
-// More routes added here as we build features:
-
-
-
-
-// router.use("/reviews", require("./reviewRoutes"));
-// router.use("/admin", require("./adminRoutes"));
+router.use("/payments",  require("./paymentRoutes"));
+router.use("/reviews",   require("./reviewRoutes"));
+router.use("/admin",     require("./adminRoutes"));
 
 module.exports = router;

@@ -63,3 +63,30 @@ export const submitWork = async ({ contractId, file }) => {
   );
   return data;
 };
+
+
+
+
+// ADD these two functions to existing contractApi.js
+
+/*
+ * Client releases funds → triggers ACID transaction on backend.
+ * This is the final step of the escrow flow.
+ */
+export const releaseFunds = async (contractId) => {
+  const { data } = await axiosInstance.post(
+    `/contracts/${contractId}/release`
+  );
+  return data;
+};
+
+/*
+ * Client requests revision → sends work back to freelancer.
+ * Contract status goes back to "funded".
+ */
+export const requestRevision = async (contractId) => {
+  const { data } = await axiosInstance.post(
+    `/contracts/${contractId}/revision`
+  );
+  return data;
+};

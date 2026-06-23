@@ -5,11 +5,13 @@ const {
   acceptBid,
   getContractById,
   getMyContracts,
-  submitWork,             // ← ADD
+  submitWork,
+  releaseFunds,       // ← ADD
+  requestRevision,    // ← ADD
 } = require("../controllers/contractController");
 
 const { protect, restrictTo } = require("../middlewares/authMiddleware");
-const { upload } = require("../middlewares/uploadMiddleware"); // ← ADD
+const { upload } = require("../middlewares/uploadMiddleware");
 
 // GET /api/contracts/my-contracts
 router.get("/my-contracts", protect, getMyContracts);
@@ -17,19 +19,7 @@ router.get("/my-contracts", protect, getMyContracts);
 // POST /api/contracts/accept-bid/:bidId
 router.post("/accept-bid/:bidId", protect, restrictTo("client"), acceptBid);
 
-/*
- * POST /api/contracts/:id/submit
- *
- * Middleware chain (runs left to right):
- * 1. protect          → check if user is logged in
- * 2. restrictTo       → check if user is a freelancer
- * 3. upload.single()  → read the file from request, upload to Cloudinary
- * 4. submitWork       → save Cloudinary URL to DB, update status
- *
- * "workFile" must match the field name used in the frontend form.
- * If frontend sends file as "workFile", this matches.
- * If names don't match, req.file will be undefined.
- */
+// POST /api/contracts/:id/submit (freelancer uploads work)
 router.post(
   "/:id/submit",
   protect,
@@ -37,6 +27,18 @@ router.post(
   upload.single("workFile"),
   submitWork
 );
+
+/*
+ * POST /api/contracts/:id/release
+ * Client releases funds → triggers ACID transaction
+ */
+router.post("/:id/release", protect, restrictTo("client"), releaseFunds);
+
+/*
+ * POST /api/contracts/:id/revision
+ * Client requests revision → sends work back to freelancer
+ */
+router.post("/:id/revision", protect, restrictTo("client"), requestRevision);
 
 // GET /api/contracts/:id
 router.get("/:id", protect, getContractById);
