@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 
 import { loginUser } from "@/api/authApi";
 import { useAuth } from "@/context/AuthContext";
@@ -61,6 +62,14 @@ const LoginPage = () => {
   return (
     <div className="flex items-center justify-center min-h-screen px-4 bg-slate-950">
       <div className="w-full max-w-md">
+
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 mb-6 text-sm transition text-slate-400 hover:text-white"
+        >
+          <ArrowLeft size={16} />
+          Back
+        </button>
 
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-white">Welcome Back</h1>
