@@ -153,14 +153,14 @@ const Navbar = () => {
 
       {/* Mobile Nav Menu */}
       {mobileMenuOpen && (
-        <div className="border-t border-slate-800 px-4 py-4 md:hidden">
-          <div className="flex flex-col gap-3">
+        <div className="border-t border-slate-800 px-4 py-6 md:hidden">
+          <div className="flex flex-col gap-5">
             <Link
               to="/jobs"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2 text-sm transition text-slate-400 hover:text-white py-2"
+              className="flex items-center gap-3 text-base transition text-slate-400 hover:text-white"
             >
-              <Briefcase size={16} />
+              <Briefcase size={20} />
               <span>Browse Jobs</span>
             </Link>
 
@@ -169,12 +169,12 @@ const Navbar = () => {
                 <Link
                   to="/chat"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 text-sm transition text-slate-400 hover:text-white relative py-2"
+                  className="flex items-center gap-3 text-base transition text-slate-400 hover:text-white relative w-fit"
                 >
-                  <MessageSquare size={16} />
+                  <MessageSquare size={20} />
                   <span>Messages</span>
                   {totalUnread > 0 && (
-                    <span className="ml-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-4 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                       {totalUnread}
                     </span>
                   )}
@@ -183,7 +183,7 @@ const Navbar = () => {
                   <Link
                     to="/client-dashboard"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-sm transition text-slate-400 hover:text-white py-2"
+                    className="text-base transition text-slate-400 hover:text-white"
                   >
                     My Jobs
                   </Link>
@@ -192,7 +192,7 @@ const Navbar = () => {
                   <Link
                     to="/freelancer-dashboard"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-sm transition text-slate-400 hover:text-white py-2"
+                    className="text-base transition text-slate-400 hover:text-white"
                   >
                     My Work
                   </Link>
@@ -201,7 +201,7 @@ const Navbar = () => {
                   <Link
                     to="/admin"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-sm transition text-slate-400 hover:text-white py-2"
+                    className="text-base transition text-slate-400 hover:text-white"
                   >
                     Admin Dashboard
                   </Link>
@@ -209,17 +209,17 @@ const Navbar = () => {
                 <Link
                   to={`/profile/${currentUser._id}`}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 text-sm transition text-slate-400 hover:text-white py-2"
+                  className="flex items-center gap-3 text-base transition text-slate-400 hover:text-white"
                 >
-                  <User size={16} />
+                  <User size={20} />
                   <span>Profile</span>
                 </Link>
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition rounded-lg border border-slate-700 text-slate-300 hover:border-slate-600 hover:text-white disabled:opacity-50 w-full"
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-base font-semibold transition rounded-lg border border-slate-700 text-slate-300 hover:border-slate-600 hover:text-white disabled:opacity-50 w-full"
                 >
-                  <LogOut size={16} />
+                  <LogOut size={18} />
                   <span>
                     {isLoggingOut ? "Logging out..." : "Logout"}
                   </span>
@@ -231,14 +231,14 @@ const Navbar = () => {
                 <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 text-sm transition border rounded-lg border-slate-700 text-slate-300 hover:border-slate-600 hover:text-white py-2 w-full"
+                  className="flex items-center justify-center gap-2 text-base transition border rounded-lg border-slate-700 text-slate-300 hover:border-slate-600 hover:text-white py-3 w-full"
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white transition rounded-lg bg-violet-600 hover:bg-violet-700 w-full"
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-base font-semibold text-white transition rounded-lg bg-violet-600 hover:bg-violet-700 w-full"
                 >
                   Sign Up
                 </Link>
