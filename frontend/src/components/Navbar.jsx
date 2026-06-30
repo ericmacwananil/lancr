@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Zap, Home, Briefcase, User, LogOut, MessageSquare, Menu, X } from "lucide-react";
@@ -9,6 +9,20 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { currentUser, logout, isLoggingOut } = useAuth();
   const navigate = useNavigate();
+  const menuRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Fetch conversations to get total unread count
   const { data: conversationsData } = useQuery({
@@ -30,7 +44,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
+    <nav ref={menuRef} className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
       <div className="flex items-center justify-between max-w-6xl px-4 py-4 mx-auto">
         <Link to="/" className="flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-600">
@@ -203,7 +217,7 @@ const Navbar = () => {
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold transition rounded-lg border border-slate-700 text-slate-300 hover:border-slate-600 hover:text-white disabled:opacity-50 w-fit"
+                  className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition rounded-lg border border-slate-700 text-slate-300 hover:border-slate-600 hover:text-white disabled:opacity-50 w-full"
                 >
                   <LogOut size={16} />
                   <span>
@@ -217,14 +231,14 @@ const Navbar = () => {
                 <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-sm transition text-slate-400 hover:text-white py-2"
+                  className="flex items-center justify-center gap-2 text-sm transition border rounded-lg border-slate-700 text-slate-300 hover:border-slate-600 hover:text-white py-2 w-full"
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 text-sm font-semibold text-white transition rounded-lg bg-violet-600 hover:bg-violet-700 w-fit"
+                  className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white transition rounded-lg bg-violet-600 hover:bg-violet-700 w-full"
                 >
                   Sign Up
                 </Link>
