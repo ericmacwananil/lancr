@@ -30,6 +30,7 @@ const ChatPage = () => {
   const { currentUser: user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedConversationId, setSelectedConversationId] = useState(null);
+  const [showMobileChat, setShowMobileChat] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Fetch all conversations
@@ -170,11 +171,20 @@ const ChatPage = () => {
     (p) => p._id.toString() !== user?._id?.toString()
   );
 
+  const handleSelectConversation = (id) => {
+    setSelectedConversationId(id);
+    setShowMobileChat(true);
+  };
+
+  const handleBackToList = () => {
+    setShowMobileChat(false);
+  };
+
   return (
     <div className="min-h-screen text-white bg-slate-950">
       <div className="flex h-[calc(100vh-80px)]">
         {/* Conversation List Sidebar */}
-        <div className="flex flex-col w-80 border-r border-slate-800 bg-slate-900">
+        <div className={`flex-col border-r border-slate-800 bg-slate-900 ${showMobileChat ? "hidden" : "flex"} md:flex w-full md:w-80`}>
           <div className="p-4 border-b border-slate-800">
             <Link
               to={user?.role === "client" ? "/client-dashboard" : "/freelancer-dashboard"}
@@ -203,7 +213,7 @@ const ChatPage = () => {
                 return (
                   <div
                     key={conversation._id}
-                    onClick={() => setSelectedConversationId(conversation._id)}
+                    onClick={() => handleSelectConversation(conversation._id)}
                     className={cn(
                       "p-4 border-b transition-colors cursor-pointer border-slate-800",
                       isSelected ? "bg-slate-800" : "hover:bg-slate-800/50"
@@ -249,7 +259,7 @@ const ChatPage = () => {
         </div>
 
         {/* Chat Area */}
-        <div className="flex flex-col flex-1 bg-slate-950">
+        <div className={`flex-col flex-1 bg-slate-950 ${!showMobileChat ? "hidden" : "flex"} md:flex`}>
           {!selectedConversationId ? (
             <div className="flex flex-col flex-1 justify-center items-center text-slate-500">
               <MessageSquare size={64} className="mb-4 opacity-20" />
@@ -260,6 +270,12 @@ const ChatPage = () => {
               {/* Chat Header */}
               <div className="p-4 border-b border-slate-800 bg-slate-900">
                 <div className="flex gap-3 items-center">
+                  <button
+                    onClick={handleBackToList}
+                    className="md:hidden text-slate-400 hover:text-white mr-1"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
                   <div className="flex justify-center items-center w-10 h-10 bg-violet-600 rounded-full">
                     {otherParticipant?.avatar ? (
                       <img
@@ -313,7 +329,7 @@ const ChatPage = () => {
                       >
                         <div
                           className={cn(
-                            "max-w-[70%] rounded-2xl px-4 py-2",
+                            "max-w-[70%] sm:max-w-[60%] rounded-2xl px-4 py-2",
                             isSender
                               ? "bg-violet-600 text-white"
                               : "bg-slate-800 text-slate-200"
