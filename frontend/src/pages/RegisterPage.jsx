@@ -51,13 +51,21 @@ const RegisterPage = () => {
     mutationFn: registerUser,
     onSuccess: (data) => {
       toast.success(data.message || "Account created!");
-      /*
-       * After registering, refetch the current user so AuthContext
-       * immediately reflects the new logged-in state.
-       * Then redirect to dashboard.
-       */
       refetchUser();
-      navigate("/dashboard");
+      const role = formData.role;
+      switch (role) {
+        case "admin":
+          navigate("/admin");
+          break;
+        case "client":
+          navigate("/client-dashboard");
+          break;
+        case "freelancer":
+          navigate("/freelancer-dashboard");
+          break;
+        default:
+          navigate("/");
+      }
     },
     onError: (error) => {
       toast.error(error.message || "Registration failed");
