@@ -73,7 +73,7 @@ const updateProfile = async (req, res) => {
     const validation = updateProfileSchema.safeParse(req.body);
 
     if (!validation.success) {
-      const errors = validation.error.errors.map((e) => e.message);
+      const errors = validation.error.issues.map((e) => e.message);
       return res.status(400).json({
         success: false,
         message: errors[0],

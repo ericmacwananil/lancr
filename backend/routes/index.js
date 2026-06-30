@@ -90,5 +90,6 @@ router.use("/contracts", require("./contractRoutes"));
 router.use("/payments",  require("./paymentRoutes"));
 router.use("/reviews",   require("./reviewRoutes"));
 router.use("/admin",     require("./adminRoutes"));
+router.use("/conversations", require("./messageRoutes"));
 
 module.exports = router;

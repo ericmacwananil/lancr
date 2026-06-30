@@ -232,4 +232,41 @@ const stripeWebhook = async (req, res) => {
 };
 
 
-module.exports = { createPaymentIntent, stripeWebhook };
+// For DEVELOPMENT ONLY: Manually fund a contract (skip Stripe webhook)
+const manuallyFundContract = async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.contractId);
+    
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: "Contract not found",
+      });
+    }
+
+    if (contract.client.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the client can fund this contract",
+      });
+    }
+
+    contract.status = "funded";
+    await contract.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Contract funded successfully",
+      data: { contract },
+    });
+
+  } catch (error) {
+    console.error("manuallyFundContract error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fund contract",
+    });
+  }
+};
+
+module.exports = { createPaymentIntent, stripeWebhook, manuallyFundContract };

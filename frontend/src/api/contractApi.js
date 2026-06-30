@@ -49,15 +49,9 @@ export const submitWork = async ({ contractId, file }) => {
     `/contracts/${contractId}/submit`,
     formData,
     {
-      /*
-       * When sending FormData, we must set Content-Type to
-       * multipart/form-data so the server knows it's a file upload.
-       *
-       * We also need to override the default "application/json"
-       * that axiosInstance sets globally.
-       */
+      // Remove the default Content-Type header so browser can set it with boundary
       headers: {
-        "Content-Type": "multipart/form-data",
+        "Content-Type": undefined,
       },
     }
   );
@@ -87,6 +81,47 @@ export const releaseFunds = async (contractId) => {
 export const requestRevision = async (contractId) => {
   const { data } = await axiosInstance.post(
     `/contracts/${contractId}/revision`
+  );
+  return data;
+};
+
+/*
+ * Client requests a refund
+ */
+export const requestRefund = async (contractId, refundReason) => {
+  const { data } = await axiosInstance.post(
+    `/contracts/${contractId}/request-refund`,
+    { refundReason }
+  );
+  return data;
+};
+
+/*
+ * Admin: Get all refund requests
+ */
+export const getRefundRequests = async () => {
+  const { data } = await axiosInstance.get(`/admin/refunds`);
+  return data;
+};
+
+/*
+ * Admin: Approve refund
+ */
+export const approveRefund = async (contractId, adminNotes) => {
+  const { data } = await axiosInstance.post(
+    `/admin/refunds/${contractId}/approve`,
+    { adminNotes }
+  );
+  return data;
+};
+
+/*
+ * Admin: Reject refund
+ */
+export const rejectRefund = async (contractId, adminNotes) => {
+  const { data } = await axiosInstance.post(
+    `/admin/refunds/${contractId}/reject`,
+    { adminNotes }
   );
   return data;
 };

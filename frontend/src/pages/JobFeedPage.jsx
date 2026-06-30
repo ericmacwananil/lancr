@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Search, Briefcase, DollarSign, Clock } from "lucide-react";
 
 import { getAllJobs } from "@/api/jobApi";
+import Navbar from "@/components/Navbar";
 
 /*
  * WHAT IS THIS PAGE?
@@ -150,8 +151,9 @@ const JobFeedPage = () => {
   };
 
   return (
-    <div className="min-h-screen px-4 py-10 bg-slate-950">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-slate-950">
+      <Navbar />
+      <div className="max-w-6xl px-4 py-10 mx-auto">
 
         {/* Page Header */}
         <div className="mb-8">

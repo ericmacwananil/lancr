@@ -18,12 +18,10 @@
 // +------------------------------------------------------+
 
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { LogOut, User, Briefcase } from "lucide-react";
+import { User, Briefcase } from "lucide-react";
 
-import { logoutUser } from "@/api/authApi";
 import { useAuth } from "@/context/AuthContext";
+import Navbar from "@/components/Navbar";
 
 /*
  * Temporary dashboard — just shows who is logged in.
@@ -31,25 +29,18 @@ import { useAuth } from "@/context/AuthContext";
  */
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
 
-  const { mutate: logout } = useMutation({
-    mutationFn: logoutUser,
-    onSuccess: () => {
-      /*
-       * After logout, clear the cached user data from React Query.
-       * This makes currentUser become null immediately.
-       */
-      queryClient.setQueryData(["authUser"], null);
-      toast.success("Logged out successfully");
-      navigate("/login");
-    },
-  });
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950">
-      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
+    <div className="min-h-screen bg-slate-950">
+      <Navbar />
+      <div className="flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
 
         {/* Role Badge */}
         <div className="mb-4 flex justify-center">
@@ -73,16 +64,15 @@ const DashboardPage = () => {
         <p className="mt-2 text-slate-400">{currentUser?.email}</p>
 
         <button
-          onClick={() => logout()}
+          onClick={handleLogout}
           className="mt-8 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 py-2.5 text-slate-300 transition hover:border-red-500 hover:text-red-400"
         >
-          <LogOut size={16} />
           Logout
         </button>
-
+        </div>
       </div>
     </div>
   );
-};
+}
 
 export default DashboardPage;

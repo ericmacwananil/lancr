@@ -6,8 +6,9 @@ const {
   getContractById,
   getMyContracts,
   submitWork,
-  releaseFunds,       // ← ADD
-  requestRevision,    // ← ADD
+  releaseFunds,
+  requestRevision,
+  requestRefund,
 } = require("../controllers/contractController");
 
 const { protect, restrictTo } = require("../middlewares/authMiddleware");
@@ -39,6 +40,12 @@ router.post("/:id/release", protect, restrictTo("client"), releaseFunds);
  * Client requests revision → sends work back to freelancer
  */
 router.post("/:id/revision", protect, restrictTo("client"), requestRevision);
+
+/*
+ * POST /api/contracts/:id/request-refund
+ * Client requests a refund
+ */
+router.post("/:id/request-refund", protect, restrictTo("client"), requestRefund);
 
 // GET /api/contracts/:id
 router.get("/:id", protect, getContractById);

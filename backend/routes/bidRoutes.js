@@ -6,20 +6,14 @@ const {
   getBidsForJob,
   updateBidStatus,
   getMyBids,
+  clientCounterOffer,
+  freelancerRespondToCounter,
 } = require("../controllers/bidController");
 
 const { protect, restrictTo } = require("../middlewares/authMiddleware");
 
 /*
  * ALL bid routes are private — you must be logged in.
- *
- * GET /api/bids/my-bids         → freelancer sees their own bids
- * POST /api/bids                → freelancer submits a bid
- * GET /api/bids/job/:jobId      → client sees all bids on their job
- * PUT /api/bids/:id/status      → client accepts or rejects a bid
- *
- * NOTE: my-bids must come BEFORE :id routes
- * (same reason as in jobRoutes — Express reads top to bottom)
  */
 
 router.get(
@@ -48,6 +42,20 @@ router.put(
   protect,
   restrictTo("client"),
   updateBidStatus
+);
+
+router.post(
+  "/:id/counter-offer",
+  protect,
+  restrictTo("client"),
+  clientCounterOffer
+);
+
+router.post(
+  "/:id/respond",
+  protect,
+  restrictTo("freelancer"),
+  freelancerRespondToCounter
 );
 
 module.exports = router;

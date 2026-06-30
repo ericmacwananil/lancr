@@ -48,34 +48,67 @@ const bidSchema = new mongoose.Schema(
     /*
      * status tracks the lifecycle of a bid:
      * pending  → just submitted, waiting for client decision
+     * countered → client made a counter-offer, waiting for freelancer response
      * accepted → client accepted this bid (contract will be created)
      * rejected → client rejected this bid
      */
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected"],
+      enum: ["pending", "countered", "accepted", "rejected"],
       default: "pending",
     },
+
+    /*
+     * Track who made the last offer
+     */
+    lastOfferBy: {
+      type: String,
+      enum: ["client", "freelancer"],
+      default: "freelancer",
+    },
+
+    /*
+     * Negotiation history: track all offers/counter-offers
+     */
+    negotiationHistory: [
+      {
+        amount: {
+          type: Number,
+          required: true,
+        },
+        message: {
+          type: String,
+          default: "",
+        },
+        offeredBy: {
+          type: String,
+          enum: ["client", "freelancer"],
+          required: true,
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true, // adds createdAt and updatedAt
   }
 );
 
-/*
- * COMPOUND UNIQUE INDEX
- * This enforces that ONE freelancer can only bid ONCE per job.
- *
- * { job: 1, freelancer: 1 } means the combination of
- * job ID + freelancer ID must be unique in the collection.
- *
- * If freelancer tries to bid on the same job twice,
- * MongoDB throws a duplicate key error (code 11000)
- * which our errorHandler.js catches and returns a clean message.
- *
- * unique: true at the schema level.
- */
-bidSchema.index({ job: 1, freelancer: 1 }, { unique: true });
+// Pre-save hook to initialize negotiation history on first bid
+bidSchema.pre("save", async function () {
+  if (this.isNew && this.negotiationHistory.length === 0) {
+    this.negotiationHistory.push({
+      amount: this.amount,
+      message: this.coverLetter,
+      offeredBy: "freelancer",
+      timestamp: this.createdAt || new Date(),
+    });
+  }
+});
+
 
 const Bid = mongoose.model("Bid", bidSchema);
 

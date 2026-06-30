@@ -5,8 +5,16 @@ import { Link } from "react-router-dom";
 import {
   Users, Briefcase, FileText,
   DollarSign, Trash2, Shield,
-  TrendingUp, CheckCircle,
+  TrendingUp, CheckCircle, AlertCircle,
+  XCircle, Check, ExternalLink,
 } from "lucide-react";
+import Navbar from "@/components/Navbar";
+
+import {
+  getRefundRequests,
+  approveRefund,
+  rejectRefund,
+} from "@/api/contractApi";
 
 import {
   getAdminStats,
@@ -59,6 +67,8 @@ const StatusBadge = ({ status }) => {
     archived:        "bg-slate-700 text-slate-400",
     pending_payment: "bg-orange-500/10 text-orange-400",
     funded:          "bg-blue-500/10 text-blue-400",
+    refund_requested: "bg-orange-500/10 text-orange-400",
+    refunded:        "bg-red-500/10 text-red-400",
     client:          "bg-blue-500/10 text-blue-400",
     freelancer:      "bg-green-500/10 text-green-400",
     admin:           "bg-red-500/10 text-red-400",
@@ -404,6 +414,246 @@ const ContractsTab = () => {
   );
 };
 
+// ─── Refund Decision Modal ─────────────────────────────────────
+const RefundDecisionModal = ({ isOpen, onClose, onConfirm, contract, decision, isPending }) => {
+  const [adminNotes, setAdminNotes] = useState("");
+
+  if (!isOpen) return null;
+
+  const isApproval = decision === "approve";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md p-6 border rounded-2xl border-slate-700 bg-slate-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`flex items-center justify-center w-12 h-12 mb-4 rounded-full ${isApproval ? "bg-red-500/10" : "bg-green-500/10"}`}>
+          {isApproval ? (
+            <XCircle size={22} className="text-red-400" />
+          ) : (
+            <Check size={22} className="text-green-400" />
+          )}
+        </div>
+
+        <h3 className="text-lg font-bold text-white">
+          {isApproval ? "Approve Refund?" : "Reject Refund?"}
+        </h3>
+
+        <div className="mt-3 p-4 rounded-xl bg-slate-800">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-400">Job</span>
+            <span className="text-sm font-medium text-white">{contract?.job?.title}</span>
+          </div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-400">Amount</span>
+            <span className="text-sm font-medium text-green-400">${contract?.agreedAmount}</span>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="block mb-2 text-sm text-slate-300">
+            Admin Notes (optional)
+          </label>
+          <textarea
+            value={adminNotes}
+            onChange={(e) => setAdminNotes(e.target.value)}
+            placeholder="Add any notes about this decision..."
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-violet-500 min-h-[100px]"
+          />
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            disabled={isPending}
+            className="flex-1 rounded-lg border border-slate-700 py-2.5 text-slate-300 transition hover:border-slate-600 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(adminNotes)}
+            disabled={isPending}
+            className={`flex-1 rounded-lg py-2.5 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 ${
+              isApproval ? "bg-red-600" : "bg-green-600"
+            }`}
+          >
+            {isPending ? "Processing..." : isApproval ? "Approve Refund" : "Reject Refund"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// ─── Refunds Tab ───────────────────────────────────────────────
+const RefundsTab = () => {
+  const queryClient = useQueryClient();
+  const [modalConfig, setModalConfig] = useState(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["adminRefundRequests"],
+    queryFn: getRefundRequests,
+  });
+
+  const contracts = data?.data?.contracts || [];
+
+  const { mutate: handleApprove, isPending: isApproving } = useMutation({
+    mutationFn: ({ contractId, adminNotes }) => approveRefund(contractId, adminNotes),
+    onSuccess: () => {
+      toast.success("Refund approved");
+      queryClient.invalidateQueries({ queryKey: ["adminRefundRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["adminStats"] });
+      setModalConfig(null);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to approve refund");
+      setModalConfig(null);
+    },
+  });
+
+  const { mutate: handleReject, isPending: isRejecting } = useMutation({
+    mutationFn: ({ contractId, adminNotes }) => rejectRefund(contractId, adminNotes),
+    onSuccess: () => {
+      toast.success("Refund rejected, funds released to freelancer");
+      queryClient.invalidateQueries({ queryKey: ["adminRefundRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["adminStats"] });
+      setModalConfig(null);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to reject refund");
+      setModalConfig(null);
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="w-8 h-8 border-4 rounded-full animate-spin border-slate-600 border-t-violet-500" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="overflow-hidden border rounded-xl border-slate-800">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-slate-800 bg-slate-900/50">
+              <th className="px-5 py-3 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">Job</th>
+              <th className="px-5 py-3 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">Client</th>
+              <th className="px-5 py-3 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">Freelancer</th>
+              <th className="px-5 py-3 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">Amount</th>
+              <th className="px-5 py-3 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">Reason</th>
+              <th className="px-5 py-3 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">Date</th>
+              <th className="px-5 py-3 text-xs font-semibold tracking-wider text-right uppercase text-slate-400">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800 bg-slate-900">
+            {contracts.map((contract) => (
+              <tr key={contract._id} className="transition hover:bg-slate-800/40">
+                <td className="px-5 py-4">
+                  <div className="flex flex-col gap-1">
+                    <Link
+                      to={`/contracts/${contract._id}`}
+                      className="font-medium text-white hover:text-violet-400"
+                    >
+                      {contract.job?.title || "N/A"}
+                    </Link>
+                    {contract.deliveryFile && (
+                      <a
+                        href={contract.deliveryFile}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-violet-400"
+                      >
+                        <FileText size={10} />
+                        View work
+                        <ExternalLink size={8} />
+                      </a>
+                    )}
+                  </div>
+                </td>
+                <td className="px-5 py-4 text-sm text-slate-400">
+                  {contract.client?.name}
+                </td>
+                <td className="px-5 py-4 text-sm text-slate-400">
+                  {contract.freelancer?.name}
+                </td>
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-1 text-sm text-green-400">
+                    <DollarSign size={12} />
+                    {contract.agreedAmount}
+                  </div>
+                </td>
+                <td className="px-5 py-4">
+                  <p className="text-xs text-slate-300 line-clamp-2">
+                    {contract.refundReason || "No reason provided"}
+                  </p>
+                </td>
+                <td className="px-5 py-4 text-sm text-slate-400">
+                  {contract.refundRequestedAt ? (
+                    new Date(contract.refundRequestedAt).toLocaleDateString()
+                  ) : "N/A"}
+                </td>
+                <td className="px-5 py-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setModalConfig({ contract, decision: "approve" })}
+                      disabled={isApproving || isRejecting}
+                      className="px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-xs font-medium hover:bg-red-500/20 transition disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => setModalConfig({ contract, decision: "reject" })}
+                      disabled={isApproving || isRejecting}
+                      className="px-3 py-1.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 text-xs font-medium hover:bg-green-500/20 transition disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {contracts.length === 0 && (
+          <div className="py-12 text-center text-slate-500">No refund requests found</div>
+        )}
+      </div>
+
+      {modalConfig && (
+        <RefundDecisionModal
+          isOpen={!!modalConfig}
+          onClose={() => setModalConfig(null)}
+          onConfirm={(adminNotes) => {
+            if (modalConfig.decision === "approve") {
+              handleApprove({
+                contractId: modalConfig.contract._id,
+                adminNotes,
+              });
+            } else {
+              handleReject({
+                contractId: modalConfig.contract._id,
+                adminNotes,
+              });
+            }
+          }}
+          contract={modalConfig.contract}
+          decision={modalConfig.decision}
+          isPending={modalConfig.decision === "approve" ? isApproving : isRejecting}
+        />
+      )}
+    </>
+  );
+};
+
 
 // ─── Main Admin Dashboard Page ────────────────────────────────
 const AdminDashboard = () => {
@@ -425,11 +675,13 @@ const AdminDashboard = () => {
     { key: "users",     label: "Users",     icon: <Users size={15} /> },
     { key: "jobs",      label: "Jobs",      icon: <Briefcase size={15} /> },
     { key: "contracts", label: "Contracts", icon: <FileText size={15} /> },
+    { key: "refunds",   label: "Refunds",   icon: <AlertCircle size={15} /> },
   ];
 
   return (
-    <div className="min-h-screen px-4 py-10 bg-slate-950">
-      <div className="mx-auto max-w-7xl">
+    <div className="min-h-screen bg-slate-950">
+      <Navbar />
+      <div className="mx-auto max-w-7xl px-4 py-10">
 
         {/* Header */}
         <div className="mb-8">
@@ -518,6 +770,7 @@ const AdminDashboard = () => {
         {activeTab === "users"     && <UsersTab />}
         {activeTab === "jobs"      && <JobsTab />}
         {activeTab === "contracts" && <ContractsTab />}
+        {activeTab === "refunds"   && <RefundsTab />}
 
       </div>
     </div>

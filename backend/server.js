@@ -1,7 +1,9 @@
-//backend/server.js
+// backend/server.js
 
 require("dotenv").config();
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
@@ -16,6 +18,59 @@ const errorHandler = require("./middlewares/errorHandler");
 connectDB();
 
 const app = express();
+const server = http.createServer(app);
+
+// Set up Socket.io
+const io = new Server(server, {
+  cors: {
+    origin: ["http://localhost:5173", process.env.CLIENT_URL].filter(Boolean),
+    credentials: true,
+  },
+});
+
+// Store online users (for demo purposes)
+const onlineUsers = new Map();
+
+io.on("connection", (socket) => {
+  console.log("A user connected:", socket.id);
+
+  // When a user comes online, store their user ID to socket ID mapping
+  socket.on("userOnline", (userId) => {
+    onlineUsers.set(userId, socket.id);
+    console.log("User online:", userId);
+  });
+
+  // Listen for new messages
+  socket.on("sendMessage", async (data) => {
+    // Emit the message to the recipient's socket (if online)
+    const recipientSocketId = onlineUsers.get(data.recipientId);
+    if (recipientSocketId) {
+      io.to(recipientSocketId).emit("receiveMessage", data.message);
+    }
+    // Also emit to the conversation for anyone in it
+    io.to(data.conversationId).emit("receiveMessage", data.message);
+  });
+
+  // Join a conversation room
+  socket.on("joinConversation", (conversationId) => {
+    socket.join(conversationId);
+    console.log("User joined conversation:", conversationId);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+    // Remove user from onlineUsers map
+    for (let [userId, sockId] of onlineUsers) {
+      if (sockId === socket.id) {
+        onlineUsers.delete(userId);
+        break;
+      }
+    }
+  });
+});
+
+// Make io available in routes
+app.set("io", io);
 
 // helmet is a security middleware for Express.
 // It automatically adds security headers to your HTTP responses to protect your backend from common attacks.
@@ -23,13 +78,32 @@ app.use(helmet());
 
 
 // ─── CORS ────────────────────────────────────────────────────> Frontend ↔ Backend communication
+/*
+ * FIND the CORS section in server.js and REPLACE with this:
+ * Now accepts BOTH localhost (dev) and Vercel URL (production).
+ */
 app.use(
-    cors({
-        origin: process.env.CLIENT_URL || "http://localhost:5173",
-        credentials: true, // “Allow frontend to send and receive cookies, authentication headers, or session data.”
-    })
-)
+  cors({
+    origin: (origin, callback) => {
+      /*
+       * allowedOrigins: all URLs allowed to call our API.
+       * Add your Vercel URL here after deployment.
+       */
+      const allowedOrigins = [
+        "http://localhost:5173",
+        process.env.CLIENT_URL,
+      ].filter(Boolean); // remove undefined/null values
 
+      // Allow requests with no origin (Postman, mobile apps)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 
 //Body parser
 // NOTE: Stripe webhook needs raw body — we'll override this in paymentRoutes later
@@ -155,7 +229,7 @@ app.use(errorHandler);
 
 //Start the server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server run on http://localhost:${PORT}`);
     console.log(`Environment = ${process.env.NODE_ENV}`);
 });

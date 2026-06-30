@@ -25,12 +25,47 @@ const submitBidSchema = z.object({
 
 /*
  * For updating bid status (accept/reject).
- * Only "accepted" or "rejected" are valid values.
  */
 const updateBidStatusSchema = z.object({
-  status: z.enum(["accepted", "rejected"], {
-    errorMap: () => ({ message: "Status must be accepted or rejected" }),
+  status: z.enum(["accepted", "rejected", "countered"], {
+    errorMap: () => ({ message: "Status must be accepted, rejected, or countered" }),
   }),
 });
 
-module.exports = { submitBidSchema, updateBidStatusSchema };
+/*
+ * For counter-offers (client or freelancer)
+ */
+const counterOfferSchema = z.object({
+  amount: z
+    .number({ required_error: "Counter-offer amount is required" })
+    .min(1, "Amount must be at least $1"),
+  message: z
+    .string({ required_error: "Message is required" })
+    .min(1, "Message cannot be empty")
+    .max(1000, "Message cannot exceed 1000 characters"),
+});
+
+/*
+ * For freelancer responding to counter-offer
+ */
+const respondToCounterSchema = z.object({
+  action: z.enum(["accept", "counter", "reject"], {
+    errorMap: () => ({ message: "Action must be accept, counter, or reject" }),
+  }),
+  amount: z.number().min(1).optional(),
+  message: z.string().max(1000).optional(),
+}).refine((data) => {
+  if (data.action === "counter" && !data.amount) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Amount is required when action is counter",
+});
+
+module.exports = {
+  submitBidSchema,
+  updateBidStatusSchema,
+  counterOfferSchema,
+  respondToCounterSchema,
+};

@@ -52,7 +52,7 @@ const contractSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending_payment", "funded", "under_review", "completed"],
+      enum: ["pending_payment", "funded", "under_review", "refund_requested", "completed", "refunded"],
       default: "pending_payment",
     },
 
@@ -73,6 +73,29 @@ const contractSchema = new mongoose.Schema(
      * Empty for now — filled in Feature 8.
      */
     deliveryFile: {
+      type: String,
+      default: "",
+    },
+
+    // Refund-related fields
+    refundReason: {
+      type: String,
+      default: "",
+    },
+    refundRequestedAt: {
+      type: Date,
+      default: null,
+    },
+    refundReviewedAt: {
+      type: Date,
+      default: null,
+    },
+    adminDecision: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    adminNotes: {
       type: String,
       default: "",
     },

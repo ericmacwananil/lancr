@@ -112,13 +112,12 @@ const userSchema = new mongoose.Schema(
  * - saltRounds: 12 means it runs the hash algorithm 2^12 = 4096 times.
  * - Higher = more secure but slower. 12 is the industry standard.
  */
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
   // Only hash if password was changed (not on profile update)
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password")) return;
 
 //   run this when New User Registration
   this.password = await bcrypt.hash(this.password, 12);
-  next();
 });
 
 /*

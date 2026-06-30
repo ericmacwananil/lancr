@@ -37,11 +37,10 @@ const storage = new CloudinaryStorage({
     folder: "freelance-marketplace/submissions",
 
     /*
-     * allowed_formats: only allow these file types.
-     * This prevents uploading .exe, .sh, or other dangerous files.
-     * Add more formats if needed (e.g. "mp4", "zip")
+     * allowed_formats: only allow these file types (disabled for dev testing)
+     * In production, add back: ["jpg", "jpeg", "png", "pdf", "doc", "docx", "zip"]
      */
-    allowed_formats: ["jpg", "jpeg", "png", "pdf", "doc", "docx", "zip"],
+    // allowed_formats: ["jpg", "jpeg", "png", "pdf", "doc", "docx", "zip"],
 
     /*
      * resource_type: "auto" lets Cloudinary detect the file type.
@@ -62,6 +61,13 @@ const storage = new CloudinaryStorage({
  * cb(error, false) → reject the file with an error
  */
 const fileFilter = (req, file, cb) => {
+  // Allow any file type in development for testing
+  if (process.env.NODE_ENV === "development") {
+    console.log("Development mode: accepting file type", file.mimetype);
+    return cb(null, true);
+  }
+
+  // In production, only allow specific types
   const allowedMimeTypes = [
     "image/jpeg",
     "image/png",
@@ -70,6 +76,8 @@ const fileFilter = (req, file, cb) => {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/zip",
     "application/x-zip-compressed",
+    "application/x-zip",
+    "application/octet-stream", // sometimes browsers send this for zip files
   ];
 
   if (allowedMimeTypes.includes(file.mimetype)) {

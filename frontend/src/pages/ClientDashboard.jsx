@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Briefcase, DollarSign, Trash2, Eye } from "lucide-react";
+import { Plus, Briefcase, DollarSign, Trash2, Eye, FileText } from "lucide-react";
 
 import { getMyJobs, deleteJob } from "@/api/jobApi";
+import { getMyContracts } from "@/api/contractApi";
 import { useAuth } from "@/context/AuthContext";
+import Navbar from "@/components/Navbar";
 
 /*
  * WHAT IS THIS PAGE?
@@ -30,6 +32,23 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const ContractStatusBadge = ({ status }) => {
+  const colors = {
+    pending_payment: "bg-yellow-500/10 text-yellow-400",
+    funded: "bg-blue-500/10 text-blue-400",
+    under_review: "bg-orange-500/10 text-orange-400",
+    refund_requested: "bg-red-500/10 text-red-400",
+    completed: "bg-green-500/10 text-green-400",
+    refunded: "bg-red-600/10 text-red-300",
+  };
+
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${colors[status]}`}>
+      {status.replace("_", " ")}
+    </span>
+  );
+};
+
 const ClientDashboard = () => {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
@@ -38,12 +57,24 @@ const ClientDashboard = () => {
    * Fetch only this client's jobs.
    * queryKey: ["myJobs"] — separate cache from the public feed.
    */
-  const { data, isLoading } = useQuery({
+  const { data: jobsData, isLoading: isLoadingJobs } = useQuery({
     queryKey: ["myJobs"],
     queryFn: getMyJobs,
   });
+  
+  /* Fetch contracts too */
+  const { data: contractsData } = useQuery({
+    queryKey: ["myContracts"],
+    queryFn: getMyContracts,
+  });
 
-  const jobs = data?.data?.jobs || [];
+  const jobs = jobsData?.data?.jobs || [];
+  const contracts = contractsData?.data?.contracts || [];
+  
+  // Find the contract for a given job ID
+  const getContractForJob = (jobId) => {
+    return contracts.find(c => c.job?._id === jobId);
+  };
 
   // Delete job mutation
   const { mutate: handleDelete, isPending: isDeleting } = useMutation({
@@ -70,8 +101,9 @@ const ClientDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen px-4 py-10 bg-slate-950">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-slate-950">
+      <Navbar />
+      <div className="max-w-5xl px-4 py-10 mx-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -107,14 +139,14 @@ const ClientDashboard = () => {
         </div>
 
         {/* Loading */}
-        {isLoading && (
+        {isLoadingJobs && (
           <div className="flex justify-center py-20">
             <div className="w-10 h-10 border-4 rounded-full animate-spin border-slate-600 border-t-violet-500" />
           </div>
         )}
 
         {/* Empty State */}
-        {!isLoading && jobs.length === 0 && (
+        {!isLoadingJobs && jobs.length === 0 && (
           <div className="flex flex-col items-center py-20 text-center">
             <Briefcase size={48} className="mb-4 text-slate-700" />
             <p className="text-xl font-semibold text-slate-400">No jobs posted yet</p>
@@ -157,7 +189,6 @@ const ClientDashboard = () => {
                   <tr key={job._id} className="transition hover:bg-slate-800/50">
                     <td className="px-6 py-4">
                       <p className="font-medium text-white line-clamp-1">{job.title}</p>
-                      {/* Show assigned freelancer if job is active */}
                       {job.assignedTo && (
                         <p className="mt-0.5 text-xs text-slate-500">
                           Assigned to: {job.assignedTo.name}
@@ -178,7 +209,6 @@ const ClientDashboard = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        {/* View Button */}
                         <Link
                           to={`/jobs/${job._id}`}
                           className="p-2 transition rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white"
@@ -186,7 +216,23 @@ const ClientDashboard = () => {
                         >
                           <Eye size={15} />
                         </Link>
-                        {/* Delete Button — only for open jobs */}
+                        
+                        {job.status === "assigned" && (() => {
+                          const contract = getContractForJob(job._id);
+                          if (contract) {
+                            return (
+                              <Link
+                                to={`/contracts/${contract._id}`}
+                                className="p-2 transition rounded-lg text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+                                title="View contract"
+                              >
+                                <FileText size={15} />
+                              </Link>
+                            );
+                          }
+                          return null;
+                        })()}
+                        
                         {job.status === "open" && (
                           <button
                             onClick={() => confirmDelete(job._id)}
@@ -203,6 +249,78 @@ const ClientDashboard = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Contracts Section */}
+        {contracts.length > 0 && (
+          <div className="mt-10">
+            <h2 className="mb-4 text-2xl font-bold text-white">My Contracts</h2>
+            <div className="overflow-hidden border rounded-2xl border-slate-800">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/50">
+                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                      Job
+                    </th>
+                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                      Freelancer
+                    </th>
+                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                      Amount
+                    </th>
+                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-right uppercase text-slate-400">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 bg-slate-900">
+                  {contracts.map((contract) => (
+                    <tr key={contract._id} className="transition hover:bg-slate-800/50">
+                      <td className="px-6 py-4">
+                        <p className="font-medium text-white line-clamp-1">{contract.job?.title}</p>
+                        {(contract.status === "refund_requested" || contract.status === "refunded") && contract.refundReason && (
+                          <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+                            Reason: {contract.refundReason}
+                          </p>
+                        )}
+                        {contract.status === "refunded" && contract.adminNotes && (
+                          <p className="mt-1 text-xs text-red-400 line-clamp-2">
+                            Admin Note: {contract.adminNotes}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-slate-300">{contract.freelancer?.name}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1 text-green-400">
+                          <DollarSign size={13} />
+                          <span className="font-medium">{contract.agreedAmount}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <ContractStatusBadge status={contract.status} />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end">
+                          <Link
+                            to={`/contracts/${contract._id}`}
+                            className="p-2 transition rounded-lg text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+                            title="View contract"
+                          >
+                            <Eye size={15} />
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

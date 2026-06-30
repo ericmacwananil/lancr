@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Star, Briefcase, Edit, MessageSquare } from "lucide-react";
+import { Star, Briefcase, Edit, MessageSquare, ArrowLeft } from "lucide-react";
 
 import { getUserProfile } from "@/api/userApi";
 import { getReviewsForUser } from "@/api/reviewApi";
 import { useAuth } from "@/context/AuthContext";
 import EditProfileModal from "@/components/EditProfileModal";
+import Navbar from "@/components/Navbar";
 
 const FreelancerProfilePage = () => {
   const { userId } = useParams();
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -43,8 +45,11 @@ const FreelancerProfilePage = () => {
   // ─── Loading ───────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-950">
-        <div className="w-10 h-10 border-4 rounded-full animate-spin border-slate-600 border-t-violet-500" />
+      <div className="min-h-screen bg-slate-950">
+        <Navbar />
+        <div className="flex items-center justify-center px-4 py-10">
+          <div className="w-10 h-10 border-4 rounded-full animate-spin border-slate-600 border-t-violet-500" />
+        </div>
       </div>
     );
   }
@@ -52,22 +57,34 @@ const FreelancerProfilePage = () => {
   // ─── Error ─────────────────────────────────────────────────
   if (isError) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-950">
-        <div className="text-center">
-          <p className="text-xl font-semibold text-red-400">
-            {error?.message || "Failed to load profile"}
-          </p>
-          <p className="mt-2 text-slate-400">
-            The user may not exist or was deleted.
-          </p>
+      <div className="min-h-screen bg-slate-950">
+        <Navbar />
+        <div className="flex items-center justify-center px-4 py-10">
+          <div className="text-center">
+            <p className="text-xl font-semibold text-red-400">
+              {error?.message || "Failed to load profile"}
+            </p>
+            <p className="mt-2 text-slate-400">
+              The user may not exist or was deleted.
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen px-4 py-10 bg-slate-950">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-slate-950">
+      <Navbar />
+      <div className="max-w-3xl px-4 py-10 mx-auto">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 mb-6 text-sm transition text-slate-400 hover:text-white"
+        >
+          <ArrowLeft size={16} />
+          Back
+        </button>
 
         {/* ── Profile Header Card ──────────────────────────── */}
         <div className="p-8 border rounded-2xl border-slate-800 bg-slate-900">

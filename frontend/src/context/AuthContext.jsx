@@ -22,8 +22,9 @@
 // can all access currentUser
 
 import { createContext, useContext } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getMe } from "@/api/authApi";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { getMe, logoutUser } from "@/api/authApi";
+import { toast } from "sonner";
 
 /*
  * WHY CONTEXT + REACT QUERY TOGETHER?
@@ -77,6 +78,18 @@ export const AuthProvider = ({ children }) => {
     queryClient.invalidateQueries({ queryKey: ["authUser"] });
   };
 
+  const { mutate: logout, isPending: isLoggingOut } = useMutation({
+    mutationFn: logoutUser,
+    onSuccess: () => {
+      queryClient.setQueryData(["authUser"], null); // Clear cache
+      queryClient.clear(); // Clear all queries to be safe
+      toast.success("Logged out successfully");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to logout");
+    },
+  });
+
   // Extract user from the API response shape: { data: { user: {...} } }
   const currentUser = data?.data?.user || null;
 
@@ -87,6 +100,8 @@ export const AuthProvider = ({ children }) => {
         authLoading,    // true while the /me request is in flight
         isError,        // true if the /me request failed
         refetchUser,    // call this after login/logout
+        logout,         // call this to logout user
+        isLoggingOut,   // true while logout request is in flight
       }}
     >
       {children}

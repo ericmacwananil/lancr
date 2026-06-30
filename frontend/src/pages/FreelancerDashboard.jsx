@@ -9,6 +9,7 @@ import {
 import { getMyContracts } from "@/api/contractApi";
 import { useAuth } from "@/context/AuthContext";
 import SubmitWorkModal from "@/components/SubmitWorkModal";
+import Navbar from "@/components/Navbar";
 
 /*
  * WHAT IS THIS PAGE?
@@ -95,6 +96,7 @@ const ContractCard = ({ contract, onSubmitWork }) => {
         <div className="flex items-center gap-2 px-3 py-2 mt-3 rounded-lg bg-slate-800">
           <FileText size={14} className="text-violet-400" />
           
+          <a
             href={contract.deliveryFile}
             target="_blank"
             rel="noopener noreferrer"
@@ -182,8 +184,9 @@ const FreelancerDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen px-4 py-10 bg-slate-950">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-slate-950">
+      <Navbar />
+      <div className="max-w-4xl px-4 py-10 mx-auto">
 
         {/* Header */}
         <div className="mb-8">

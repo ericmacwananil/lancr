@@ -1,30 +1,18 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Star, CheckCircle, XCircle, Clock, DollarSign, AlertTriangle } from "lucide-react";
+import { Star, CheckCircle, XCircle, Clock, DollarSign, AlertTriangle, MessageSquare } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { getBidsForJob, updateBidStatus } from "@/api/bidApi";
-import { acceptBid } from "@/api/contractApi"; // ← NEW IMPORT
-
-/*
- * WHAT CHANGED IN THIS FILE?
- * Before Feature 6: Accept button called PUT /api/bids/:id/status
- * After Feature 6:  Accept button now calls POST /api/contracts/accept-bid/:bidId
- *
- * The new flow:
- * 1. Client clicks "Accept Bid"
- * 2. Confirmation modal appears ("Are you sure?")
- * 3. Client confirms
- * 4. Frontend calls acceptBid(bidId) → triggers ACID transaction
- * 5. On success → navigate to ContractDetailPage
- */
+import { getBidsForJob, updateBidStatus, clientCounterOffer } from "@/api/bidApi";
+import { acceptBid } from "@/api/contractApi";
 
 const BidStatusBadge = ({ status }) => {
   const config = {
     pending:  { color: "bg-yellow-500/10 text-yellow-400", icon: <Clock size={11} /> },
     accepted: { color: "bg-green-500/10 text-green-400",  icon: <CheckCircle size={11} /> },
     rejected: { color: "bg-red-500/10 text-red-400",      icon: <XCircle size={11} /> },
+    countered: { color: "bg-blue-500/10 text-blue-400",   icon: <MessageSquare size={11} /> },
   };
   const { color, icon } = config[status] || config.pending;
   return (
@@ -34,22 +22,8 @@ const BidStatusBadge = ({ status }) => {
   );
 };
 
-
-// ─── Confirmation Modal ───────────────────────────────────────
-/*
- * NEW COMPONENT: A popup asking "Are you sure?" before accepting.
- * This prevents accidental clicks on such an important action.
- *
- * Props:
- * - isOpen    → show/hide the modal
- * - onClose   → cancel button handler
- * - onConfirm → confirm button handler (triggers ACID transaction)
- * - bid       → the bid object (to show amount and freelancer name)
- * - isPending → true while API call is in progress
- */
 const ConfirmAcceptModal = ({ isOpen, onClose, onConfirm, bid, isPending }) => {
   if (!isOpen) return null;
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70"
@@ -59,17 +33,11 @@ const ConfirmAcceptModal = ({ isOpen, onClose, onConfirm, bid, isPending }) => {
         className="w-full max-w-sm p-6 border rounded-2xl border-slate-700 bg-slate-900"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Warning Icon */}
         <div className="flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-green-500/10">
           <AlertTriangle size={24} className="text-green-400" />
         </div>
 
         <h3 className="text-lg font-bold text-white">Accept this bid?</h3>
-
-        {/*
-         * Show the bid details so client can confirm
-         * they're accepting the right bid.
-         */}
         <div className="p-4 mt-3 rounded-xl bg-slate-800">
           <p className="text-sm text-slate-400">Freelancer</p>
           <p className="font-semibold text-white">{bid?.freelancer?.name}</p>
@@ -82,7 +50,6 @@ const ConfirmAcceptModal = ({ isOpen, onClose, onConfirm, bid, isPending }) => {
           All other bids will be rejected automatically.
         </p>
 
-        {/* Action Buttons */}
         <div className="flex gap-3 mt-5">
           <button
             onClick={onClose}
@@ -104,18 +71,92 @@ const ConfirmAcceptModal = ({ isOpen, onClose, onConfirm, bid, isPending }) => {
   );
 };
 
+const CounterOfferModal = ({ isOpen, onClose, onConfirm, bid, isPending }) => {
+  const [amount, setAmount] = useState("");
+  const [message, setMessage] = useState("");
 
-// ─── Main BidsListPanel ───────────────────────────────────────
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md p-6 border rounded-2xl border-slate-700 bg-slate-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-blue-500/10">
+          <MessageSquare size={24} className="text-blue-400" />
+        </div>
+
+        <h3 className="text-lg font-bold text-white">Make a counter-offer</h3>
+        <div className="p-4 mt-3 rounded-xl bg-slate-800">
+          <p className="text-sm text-slate-400">Current Bid Amount</p>
+          <p className="text-xl font-bold text-green-400">${bid?.amount}</p>
+        </div>
+
+        <form className="space-y-4 mt-4" onSubmit={(e) => {
+          e.preventDefault();
+          if (!amount) return;
+          onConfirm({ amount: Number(amount), message });
+        }}>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Your counter-offer amount</label>
+            <div className="relative">
+              <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="e.g. 400"
+                min="1"
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-9 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Message (optional)</label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Explain your counter-offer..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+            />
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isPending}
+              className="flex-1 rounded-lg border border-slate-700 py-2.5 text-slate-300 transition hover:border-slate-600 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isPending || !amount}
+              className="flex-1 rounded-lg bg-blue-600 py-2.5 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isPending ? "Sending..." : "Send Counter-Offer"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const BidsListPanel = ({ jobId, jobStatus }) => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  /*
-   * Track which bid the confirmation modal is for.
-   * null = modal is closed
-   * bid object = modal is open showing that bid's details
-   */
   const [confirmBid, setConfirmBid] = useState(null);
+  const [counterBid, setCounterBid] = useState(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["bids", jobId],
@@ -126,7 +167,6 @@ const BidsListPanel = ({ jobId, jobStatus }) => {
   const bids = data?.data?.bids || [];
   const totalBids = data?.data?.totalBids || 0;
 
-  // Reject bid mutation (unchanged from Feature 5)
   const { mutate: handleReject, isPending: isRejecting } = useMutation({
     mutationFn: ({ bidId }) => updateBidStatus({ bidId, status: "rejected" }),
     onSuccess: () => {
@@ -136,41 +176,30 @@ const BidsListPanel = ({ jobId, jobStatus }) => {
     onError: (error) => toast.error(error.message || "Failed to reject bid"),
   });
 
-  /*
-   * NEW: Accept bid mutation — calls the ACID transaction endpoint.
-   *
-   * On success:
-   * 1. Show success toast
-   * 2. Clear relevant caches (bids + job updated in transaction)
-   * 3. Navigate to the ContractDetailPage
-   *    → contract._id comes from the response
-   */
   const { mutate: handleAccept, isPending: isAccepting } = useMutation({
     mutationFn: (bidId) => acceptBid(bidId),
     onSuccess: (data) => {
       toast.success("Bid accepted! Contract created 🎉");
-
-      // Refresh bids list (some bids are now "rejected")
       queryClient.invalidateQueries({ queryKey: ["bids", jobId] });
-      // Refresh job (status is now "assigned")
       queryClient.invalidateQueries({ queryKey: ["job", jobId] });
-      // Refresh contracts list
       queryClient.invalidateQueries({ queryKey: ["myContracts"] });
-
-      // Close the confirmation modal
       setConfirmBid(null);
-
-      /*
-       * Navigate to ContractDetailPage.
-       * data.data.contract._id is the newly created contract's ID.
-       * The client can now see the full contract details.
-       */
       navigate(`/contracts/${data.data.contract._id}`);
     },
     onError: (error) => {
       toast.error(error.message || "Failed to accept bid");
       setConfirmBid(null);
     },
+  });
+
+  const { mutate: handleCounterOffer, isPending: isCountering } = useMutation({
+    mutationFn: ({ bidId, amount, message }) => clientCounterOffer({ bidId, amount, message }),
+    onSuccess: () => {
+      toast.success("Counter-offer sent!");
+      queryClient.invalidateQueries({ queryKey: ["bids", jobId] });
+      setCounterBid(null);
+    },
+    onError: (error) => toast.error(error.message || "Failed to send counter-offer"),
   });
 
   if (isLoading) {
@@ -196,7 +225,6 @@ const BidsListPanel = ({ jobId, jobStatus }) => {
 
   return (
     <div>
-      {/* Panel Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-white">Bids Received</h3>
         <span className="px-3 py-1 text-sm font-medium rounded-full bg-violet-500/10 text-violet-400">
@@ -204,7 +232,6 @@ const BidsListPanel = ({ jobId, jobStatus }) => {
         </span>
       </div>
 
-      {/* Bid Cards */}
       <div className="space-y-4">
         {bids.map((bid) => (
           <div
@@ -214,10 +241,11 @@ const BidsListPanel = ({ jobId, jobStatus }) => {
                 ? "border-green-500/30 bg-green-500/5"
                 : bid.status === "rejected"
                 ? "border-slate-800 bg-slate-900/50 opacity-60"
+                : bid.status === "countered"
+                ? "border-blue-500/30 bg-blue-500/5"
                 : "border-slate-800 bg-slate-900"
             }`}
           >
-            {/* Freelancer Info + Amount */}
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-10 h-10 font-semibold rounded-full shrink-0 bg-violet-500/20 text-violet-400">
@@ -250,7 +278,6 @@ const BidsListPanel = ({ jobId, jobStatus }) => {
               </div>
             </div>
 
-            {/* Skills */}
             {bid.freelancer?.skills?.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {bid.freelancer.skills.slice(0, 4).map((skill) => (
@@ -266,7 +293,38 @@ const BidsListPanel = ({ jobId, jobStatus }) => {
               </div>
             )}
 
-            {/* Cover Letter */}
+            {bid.negotiationHistory && bid.negotiationHistory.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-medium tracking-wider uppercase text-slate-500">
+                  Negotiation History
+                </p>
+                <div className="space-y-2">
+                  {bid.negotiationHistory.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-lg border ${
+                        item.offeredBy === "client"
+                          ? "border-blue-500/30 bg-blue-500/5"
+                          : "border-violet-500/30 bg-violet-500/5"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-slate-300">
+                          {item.offeredBy === "client" ? "You" : bid.freelancer?.name}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          ${item.amount}
+                        </span>
+                      </div>
+                      {item.message && (
+                        <p className="text-sm text-slate-400">{item.message}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4">
               <p className="mb-1 text-xs font-medium tracking-wider uppercase text-slate-500">
                 Cover Letter
@@ -276,30 +334,29 @@ const BidsListPanel = ({ jobId, jobStatus }) => {
               </p>
             </div>
 
-            {/*
-             * Accept / Reject Buttons
-             * Only show when job is open AND bid is pending.
-             *
-             * NEW: Accept button now opens the confirmation modal
-             * instead of directly calling the API.
-             * This gives the client a chance to cancel.
-             */}
-            {jobStatus === "open" && bid.status === "pending" && (
+            {jobStatus === "open" && (bid.status === "pending" || bid.status === "countered") && (
               <div className="flex gap-2 mt-4">
-                {/* Accept → opens confirmation modal */}
                 <button
                   onClick={() => setConfirmBid(bid)}
-                  disabled={isAccepting || isRejecting}
+                  disabled={isAccepting || isRejecting || isCountering}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
                 >
                   <CheckCircle size={14} />
                   Accept Bid
                 </button>
 
-                {/* Reject → calls reject mutation directly */}
+                <button
+                  onClick={() => setCounterBid(bid)}
+                  disabled={isAccepting || isRejecting || isCountering}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-blue-500/30 py-2 text-sm font-medium text-blue-400 transition hover:bg-blue-500/10 disabled:opacity-50"
+                >
+                  <MessageSquare size={14} />
+                  Counter
+                </button>
+
                 <button
                   onClick={() => handleReject({ bidId: bid._id })}
-                  disabled={isAccepting || isRejecting}
+                  disabled={isAccepting || isRejecting || isCountering}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-500/30 py-2 text-sm font-medium text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
                 >
                   <XCircle size={14} />
@@ -317,17 +374,20 @@ const BidsListPanel = ({ jobId, jobStatus }) => {
         ))}
       </div>
 
-      {/*
-       * Confirmation Modal
-       * Renders outside the bid card loop so it overlays everything.
-       * confirmBid is either null (hidden) or the bid object (shown).
-       */}
       <ConfirmAcceptModal
         isOpen={!!confirmBid}
         onClose={() => setConfirmBid(null)}
         onConfirm={() => handleAccept(confirmBid._id)}
         bid={confirmBid}
         isPending={isAccepting}
+      />
+
+      <CounterOfferModal
+        isOpen={!!counterBid}
+        onClose={() => setCounterBid(null)}
+        onConfirm={({ amount, message }) => handleCounterOffer({ bidId: counterBid._id, amount, message })}
+        bid={counterBid}
+        isPending={isCountering}
       />
     </div>
   );

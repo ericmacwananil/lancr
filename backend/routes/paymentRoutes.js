@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { createPaymentIntent, stripeWebhook } = require("../controllers/paymentController");
+const { createPaymentIntent, stripeWebhook, manuallyFundContract } = require("../controllers/paymentController");
 const { protect, restrictTo } = require("../middlewares/authMiddleware");
 
 /*
@@ -34,6 +34,14 @@ router.post(
   protect,
   restrictTo("client"),
   createPaymentIntent
+);
+
+// DEVELOPMENT ONLY: Manually fund contract (no Stripe needed)
+router.post(
+  "/manually-fund/:contractId",
+  protect,
+  restrictTo("client"),
+  manuallyFundContract
 );
 
 module.exports = router;

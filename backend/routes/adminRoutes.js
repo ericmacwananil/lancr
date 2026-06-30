@@ -10,6 +10,12 @@ const {
   deleteJob,
 } = require("../controllers/adminController");
 
+const {
+  getRefundRequests,
+  approveRefund,
+  rejectRefund,
+} = require("../controllers/contractController");
+
 const { protect } = require("../middlewares/authMiddleware");
 const { isAdmin } = require("../middlewares/adminMiddleware");
 
@@ -28,5 +34,10 @@ router.get("/jobs",      protect, isAdmin, getAllJobs);
 router.get("/contracts", protect, isAdmin, getAllContracts);
 router.delete("/users/:id", protect, isAdmin, deleteUser);
 router.delete("/jobs/:id",  protect, isAdmin, deleteJob);
+
+// Refund-related admin routes
+router.get("/refunds",          protect, isAdmin, getRefundRequests);
+router.post("/refunds/:id/approve", protect, isAdmin, approveRefund);
+router.post("/refunds/:id/reject",  protect, isAdmin, rejectRefund);
 
 module.exports = router;

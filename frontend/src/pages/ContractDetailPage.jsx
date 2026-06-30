@@ -6,11 +6,12 @@ import {
   ArrowLeft, DollarSign, User,
   CheckCircle, Clock, FileText,
   AlertCircle, Lock, ExternalLink,
-  RefreshCw, ShieldCheck, Star,
+  RefreshCw, ShieldCheck, Star, MessageSquare,
 } from "lucide-react";
 
-import { getContractById, releaseFunds, requestRevision } from "@/api/contractApi";
+import { getContractById, releaseFunds, requestRevision, requestRefund } from "@/api/contractApi";
 import { checkIfReviewed } from "@/api/reviewApi";
+import { getOrCreateConversationByContract } from "@/api/messageApi";
 import { useAuth } from "@/context/AuthContext";
 import ReviewForm from "@/components/ReviewForm";
 
@@ -20,7 +21,9 @@ const ContractStatusStepper = ({ status }) => {
     { key: "pending_payment", label: "Pending Payment", icon: <Clock size={14} /> },
     { key: "funded",          label: "Funded",          icon: <DollarSign size={14} /> },
     { key: "under_review",    label: "Under Review",    icon: <FileText size={14} /> },
+    { key: "refund_requested",label: "Refund Requested",icon: <AlertCircle size={14} /> },
     { key: "completed",       label: "Completed",       icon: <CheckCircle size={14} /> },
+    { key: "refunded",        label: "Refunded",        icon: <CheckCircle size={14} /> },
   ];
 
   const currentIndex = steps.findIndex((s) => s.key === status);
@@ -122,6 +125,63 @@ const ReleaseFundsModal = ({ isOpen, onClose, onConfirm, contract, isPending }) 
   );
 };
 
+// ─── Refund Request Modal ──────────────────────────────────────
+const RefundRequestModal = ({ isOpen, onClose, onConfirm, isPending }) => {
+  const [refundReason, setRefundReason] = useState("");
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md p-6 border rounded-2xl border-slate-700 bg-slate-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-yellow-500/10">
+          <AlertCircle size={24} className="text-yellow-400" />
+        </div>
+
+        <h3 className="text-lg font-bold text-white">Request a Refund</h3>
+        <p className="mt-2 text-sm text-slate-400">
+          Please explain why you're requesting a refund.
+        </p>
+
+        <div className="mt-4">
+          <label className="block mb-2 text-sm text-slate-300">
+            Refund Reason
+          </label>
+          <textarea
+            value={refundReason}
+            onChange={(e) => setRefundReason(e.target.value)}
+            placeholder="Describe the issue..."
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-violet-500 min-h-[120px]"
+          />
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            disabled={isPending}
+            className="flex-1 rounded-lg border border-slate-700 py-2.5 text-slate-300 transition hover:border-slate-600 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(refundReason)}
+            disabled={isPending || !refundReason.trim()}
+            className="flex-1 rounded-lg bg-yellow-600 py-2.5 font-semibold text-white transition hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPending ? "Submitting..." : "Submit Refund Request"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // ─── Main Contract Detail Page ────────────────────────────────
 const ContractDetailPage = () => {
@@ -131,6 +191,7 @@ const ContractDetailPage = () => {
   const queryClient = useQueryClient();
 
   const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
 
   // ─── Fetch Contract ────────────────────────────────────────
   const { data, isLoading, isError } = useQuery({
@@ -181,7 +242,7 @@ const ContractDetailPage = () => {
     },
   });
 
-  // ─── Request Revision Mutation ─────────────────────────────
+  // ─── Request Revision Mutation ───────────────────────────────
   const { mutate: handleRevision, isPending: isRevising } = useMutation({
     mutationFn: () => requestRevision(contractId),
     onSuccess: () => {
@@ -191,6 +252,34 @@ const ContractDetailPage = () => {
     },
     onError: (error) => {
       toast.error(error.message || "Failed to request revision");
+    },
+  });
+
+  // ─── Request Refund Mutation ─────────────────────────────────
+  const { mutate: handleRefundRequest, isPending: isRequestingRefund } = useMutation({
+    mutationFn: (refundReason) => requestRefund(contractId, refundReason),
+    onSuccess: () => {
+      toast.success("Refund request submitted! Waiting for admin review.");
+      queryClient.invalidateQueries({ queryKey: ["contract", contractId] });
+      queryClient.invalidateQueries({ queryKey: ["myContracts"] });
+      setShowRefundModal(false);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to submit refund request");
+    },
+  });
+
+  // ─── Go to Chat Mutation ───────────────────────────────────
+  const { mutate: goToChat, isPending: isGoingToChat } = useMutation({
+    mutationFn: () => getOrCreateConversationByContract(contractId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      // Navigate to chat page
+      navigate("/chat");
+      // We could also auto-select the conversation, but for now just go to chat
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to open chat");
     },
   });
 
@@ -221,15 +310,24 @@ const ContractDetailPage = () => {
   return (
     <div className="min-h-screen px-4 py-10 bg-slate-950">
       <div className="max-w-3xl mx-auto">
-
         {/* Back */}
-        <Link
-          to={isClient ? "/client-dashboard" : "/freelancer-dashboard"}
-          className="inline-flex items-center gap-2 mb-6 text-sm transition text-slate-400 hover:text-white"
-        >
-          <ArrowLeft size={16} />
-          Back to Dashboard
-        </Link>
+        <div className="flex items-center gap-3 mb-6">
+          <Link
+            to={isClient ? "/client-dashboard" : "/freelancer-dashboard"}
+            className="inline-flex items-center gap-2 text-sm transition text-slate-400 hover:text-white"
+          >
+            <ArrowLeft size={16} />
+            Back to Dashboard
+          </Link>
+          <button
+            onClick={() => goToChat()}
+            disabled={isGoingToChat}
+            className="inline-flex items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/5 px-4 py-2 text-sm text-violet-400 transition hover:border-violet-500 hover:bg-violet-500/10 disabled:opacity-50"
+          >
+            <MessageSquare size={16} />
+            Chat
+          </button>
+        </div>
 
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-white">Contract Details</h1>
@@ -274,6 +372,8 @@ const ContractDetailPage = () => {
                 contract.status === "completed"      ? "bg-green-500/10 text-green-400"
                 : contract.status === "funded"       ? "bg-blue-500/10 text-blue-400"
                 : contract.status === "under_review" ? "bg-yellow-500/10 text-yellow-400"
+                : contract.status === "refund_requested" ? "bg-orange-500/10 text-orange-400"
+                : contract.status === "refunded" ? "bg-red-500/10 text-red-400"
                 : "bg-slate-700 text-slate-300"
               }`}>
                 {contract.status.replace("_", " ")}
@@ -414,11 +514,11 @@ const ContractDetailPage = () => {
               </a>
             )}
 
-            <div className="flex gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 onClick={() => setShowReleaseModal(true)}
-                disabled={isReleasing || isRevising}
-                className="flex items-center justify-center flex-1 gap-2 py-3 font-semibold text-white transition bg-green-600 rounded-lg hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isReleasing || isRevising || isRequestingRefund}
+                className="flex items-center justify-center gap-2 py-3 font-semibold text-white transition bg-green-600 rounded-lg hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <CheckCircle size={16} />
                 Release Funds ✅
@@ -426,17 +526,95 @@ const ContractDetailPage = () => {
 
               <button
                 onClick={() => handleRevision()}
-                disabled={isRevising || isReleasing}
-                className="flex items-center justify-center flex-1 gap-2 py-3 font-semibold transition border rounded-lg border-slate-700 text-slate-300 hover:border-violet-500 hover:text-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isRevising || isReleasing || isRequestingRefund}
+                className="flex items-center justify-center gap-2 py-3 font-semibold transition border rounded-lg border-slate-700 text-slate-300 hover:border-violet-500 hover:text-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCw size={16} />
                 Request Revision 🔄
+              </button>
+
+              <button
+                onClick={() => setShowRefundModal(true)}
+                disabled={isRevising || isReleasing || isRequestingRefund}
+                className="flex items-center justify-center gap-2 py-3 font-semibold transition border rounded-lg border-orange-500/30 bg-orange-500/5 text-orange-400 hover:border-orange-500 hover:bg-orange-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <AlertCircle size={16} />
+                Request Refund
               </button>
             </div>
 
             <p className="mt-3 text-xs text-slate-500">
               Releasing funds is permanent and cannot be reversed.
             </p>
+          </div>
+        )}
+
+        {/* Refund Requested — Client/Admin View */}
+        {contract.status === "refund_requested" && isClient && (
+          <div className="p-6 border rounded-2xl border-orange-500/20 bg-orange-500/5">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="shrink-0 text-orange-400 mt-0.5" />
+              <div>
+                <h3 className="mb-2 font-semibold text-orange-400">
+                  Refund Request Submitted
+                </h3>
+                <p className="text-sm text-slate-400">
+                  Waiting for admin to review your refund request.
+                </p>
+                {contract.refundReason && (
+                  <div className="mt-4 p-3 rounded-xl bg-slate-800">
+                    <p className="text-xs text-slate-400 mb-1">Your Reason:</p>
+                    <p className="text-sm text-slate-300">{contract.refundReason}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Refund Requested — Freelancer View */}
+        {contract.status === "refund_requested" && isFreelancer && (
+          <div className="p-6 border rounded-2xl border-orange-500/20 bg-orange-500/5">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="shrink-0 text-orange-400 mt-0.5" />
+              <div>
+                <h3 className="mb-2 font-semibold text-orange-400">
+                  Refund Requested by Client
+                </h3>
+                <p className="text-sm text-slate-400">
+                  The client has requested a refund. Waiting for admin decision.
+                </p>
+                {contract.refundReason && (
+                  <div className="mt-4 p-3 rounded-xl bg-slate-800">
+                    <p className="text-xs text-slate-400 mb-1">Client's Reason:</p>
+                    <p className="text-sm text-slate-300">{contract.refundReason}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Refunded — View */}
+        {contract.status === "refunded" && (
+          <div className="p-6 border rounded-2xl border-red-500/20 bg-red-500/5">
+            <div className="flex items-start gap-3">
+              <CheckCircle size={20} className="shrink-0 text-red-400 mt-0.5" />
+              <div>
+                <h3 className="mb-2 font-semibold text-red-400">
+                  Refund Approved
+                </h3>
+                <p className="text-sm text-slate-400">
+                  The admin has approved the refund request.
+                </p>
+                {contract.adminNotes && (
+                  <div className="mt-4 p-3 rounded-xl bg-slate-800">
+                    <p className="text-xs text-slate-400 mb-1">Admin Notes:</p>
+                    <p className="text-sm text-slate-300">{contract.adminNotes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -532,6 +710,14 @@ const ContractDetailPage = () => {
         onConfirm={handleRelease}
         contract={contract}
         isPending={isReleasing}
+      />
+
+      {/* Refund Request Modal */}
+      <RefundRequestModal
+        isOpen={showRefundModal}
+        onClose={() => setShowRefundModal(false)}
+        onConfirm={handleRefundRequest}
+        isPending={isRequestingRefund}
       />
     </div>
   );

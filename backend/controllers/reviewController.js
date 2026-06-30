@@ -28,7 +28,7 @@ const submitReview = async (req, res) => {
     // Step 1: Validate
     const validation = submitReviewSchema.safeParse(req.body);
     if (!validation.success) {
-      const errors = validation.error.errors.map((e) => e.message);
+      const errors = validation.error.issues.map((e) => e.message);
       return res.status(400).json({ success: false, message: errors[0], errors });
     }
 

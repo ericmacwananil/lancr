@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Plus, X, ArrowLeft } from "lucide-react";
 
 import { createJob } from "@/api/jobApi";
+import Navbar from "@/components/Navbar";
 
 /*
  * WHAT IS THIS PAGE?
@@ -87,8 +88,9 @@ const PostJobPage = () => {
   };
 
   return (
-    <div className="min-h-screen px-4 py-10 bg-slate-950">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-slate-950">
+      <Navbar />
+      <div className="max-w-2xl px-4 py-10 mx-auto">
 
         {/* Back Button */}
         <button

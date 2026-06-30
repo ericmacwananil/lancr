@@ -31,7 +31,7 @@ const register = async (req, res) => {
 
     if (!validation.success) {
       // Format Zod errors into a readable array
-      const errors = validation.error.errors.map((e) => e.message);
+      const errors = validation.error.issues.map((e) => e.message);
       return res.status(400).json({
         success: false,
         message: errors[0], // send first error message
@@ -97,7 +97,7 @@ const login = async (req, res) => {
     const validation = loginSchema.safeParse(req.body);
 
     if (!validation.success) {
-      const errors = validation.error.errors.map((e) => e.message);
+      const errors = validation.error.issues.map((e) => e.message);
       return res.status(400).json({
         success: false,
         message: errors[0],

@@ -17,6 +17,7 @@ import FreelancerDashboard from "@/pages/FreelancerDashboard";
 import ContractDetailPage from "@/pages/ContractDetailPage";
 import PaymentPage from "@/pages/PaymentPage";
 import AdminDashboard from "@/pages/AdminDashboard";
+import ChatPage from "@/pages/ChatPage";
 
 function App() {
   return (
@@ -37,6 +38,9 @@ function App() {
         />
         <Route path="/contracts/:contractId"
           element={<ProtectedRoute><ContractDetailPage /></ProtectedRoute>}
+        />
+        <Route path="/chat"
+          element={<ProtectedRoute><ChatPage /></ProtectedRoute>}
         />
 
         {/* ── Client Only ───────────────────────────────── */}

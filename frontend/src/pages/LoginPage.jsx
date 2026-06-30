@@ -24,11 +24,30 @@ const LoginPage = () => {
 
   const { mutate: login, isPending } = useMutation({
     mutationFn: loginUser,
-    onSuccess: (data) => {
-      toast.success(`Welcome back, ${data.data.user.name}!`);
-      refetchUser();
+    onSuccess: async (data) => {
+  toast.success(`Welcome back, ${data.data.user.name}!`);
+
+  await refetchUser();
+
+  const role = data.data.user.role;
+
+  switch (role) {
+    case "admin":
+      navigate("/admin");
+      break;
+
+    case "client":
+      navigate("/client-dashboard");
+      break;
+
+    case "freelancer":
+      navigate("/freelancer-dashboard");
+      break;
+
+    default:
       navigate("/dashboard");
-    },
+  }
+},
     onError: (error) => {
       toast.error(error.message || "Login failed");
     },
@@ -40,7 +59,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+    <div className="flex items-center justify-center min-h-screen px-4 bg-slate-950">
       <div className="w-full max-w-md">
 
         <div className="mb-8 text-center">
@@ -48,7 +67,7 @@ const LoginPage = () => {
           <p className="mt-2 text-slate-400">Sign in to your account</p>
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
+        <div className="p-8 border rounded-2xl border-slate-800 bg-slate-900">
           <form onSubmit={handleSubmit} className="space-y-4">
 
             <div>
@@ -91,7 +110,7 @@ const LoginPage = () => {
 
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
+          <p className="mt-6 text-sm text-center text-slate-400">
             Don't have an account?{" "}
             <Link to="/register" className="font-medium text-violet-400 hover:underline">
               Sign up

@@ -29,3 +29,15 @@ export const getMyBids = async () => {
   const { data } = await axiosInstance.get("/bids/my-bids");
   return data;
 };
+
+// Client makes a counter-offer
+export const clientCounterOffer = async ({ bidId, amount, message }) => {
+  const { data } = await axiosInstance.post(`/bids/${bidId}/counter-offer`, { amount, message });
+  return data;
+};
+
+// Freelancer responds to counter-offer
+export const freelancerRespondToCounter = async ({ bidId, action, amount, message }) => {
+  const { data } = await axiosInstance.post(`/bids/${bidId}/respond`, { action, amount, message });
+  return data;
+};

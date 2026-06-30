@@ -11,3 +11,13 @@ export const createPaymentIntent = async (contractId) => {
   );
   return data;
 };
+
+/*
+ * DEVELOPMENT ONLY: Manually mark contract as funded
+ */
+export const manuallyFundContract = async (contractId) => {
+  const { data } = await axiosInstance.post(
+    `/payments/manually-fund/${contractId}`
+  );
+  return data;
+};

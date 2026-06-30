@@ -278,26 +278,39 @@ const LandingPage = () => {
         <div className="max-w-3xl mx-auto">
           <div className="p-12 text-center border rounded-3xl border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-slate-900">
             <h2 className="text-3xl font-bold text-white sm:text-4xl">
-              Ready to get started?
+              {currentUser ? "Welcome back!" : "Ready to get started?"}
             </h2>
             <p className="mt-4 text-slate-400">
-              Join thousands of clients and freelancers already
-              working together safely on FreelanceHub.
+              {currentUser 
+                ? "Check out available jobs or manage your profile."
+                : "Join thousands of clients and freelancers already working together safely on FreelanceHub."}
             </p>
             <div className="flex flex-col items-center gap-4 mt-8 sm:flex-row sm:justify-center">
-              <Link
-                to="/register"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-8 py-3.5 font-semibold text-white transition hover:bg-violet-700 sm:w-auto"
-              >
-                Create Free Account
-                <ArrowRight size={18} />
-              </Link>
-              <Link
-                to="/jobs"
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 px-8 py-3.5 font-semibold text-slate-300 transition hover:border-slate-600 sm:w-auto"
-              >
-                Browse Jobs
-              </Link>
+              {currentUser ? (
+                <Link
+                  to="/dashboard"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-8 py-3.5 font-semibold text-white transition hover:bg-violet-700 sm:w-auto"
+                >
+                  Go to Dashboard
+                  <ArrowRight size={18} />
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/register"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-8 py-3.5 font-semibold text-white transition hover:bg-violet-700 sm:w-auto"
+                  >
+                    Create Free Account
+                    <ArrowRight size={18} />
+                  </Link>
+                  <Link
+                    to="/jobs"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 px-8 py-3.5 font-semibold text-slate-300 transition hover:border-slate-600 sm:w-auto"
+                  >
+                    Browse Jobs
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -316,15 +329,28 @@ const LandingPage = () => {
             © 2025 FreelanceHub. Built with MERN + Stripe + Escrow.
           </p>
           <div className="flex gap-4">
-            <Link to="/login" className="text-sm text-slate-500 hover:text-white">
-              Login
-            </Link>
-            <Link to="/register" className="text-sm text-slate-500 hover:text-white">
-              Register
-            </Link>
-            <Link to="/jobs" className="text-sm text-slate-500 hover:text-white">
-              Browse Jobs
-            </Link>
+            {currentUser ? (
+              <>
+                <Link to="/dashboard" className="text-sm text-slate-500 hover:text-white">
+                  Dashboard
+                </Link>
+                <Link to="/jobs" className="text-sm text-slate-500 hover:text-white">
+                  Browse Jobs
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="text-sm text-slate-500 hover:text-white">
+                  Login
+                </Link>
+                <Link to="/register" className="text-sm text-slate-500 hover:text-white">
+                  Register
+                </Link>
+                <Link to="/jobs" className="text-sm text-slate-500 hover:text-white">
+                  Browse Jobs
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </footer>

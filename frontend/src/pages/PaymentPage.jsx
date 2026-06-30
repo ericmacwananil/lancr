@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Lock, DollarSign, ArrowLeft } from "lucide-react";
 
 import { getContractById } from "@/api/contractApi";
-import { createPaymentIntent } from "@/api/paymentApi";
+import { createPaymentIntent, manuallyFundContract } from "@/api/paymentApi";
 
 /*
  * WHAT IS THIS FILE?
@@ -68,7 +68,7 @@ const cardElementOptions = {
  * - PaymentPage (outer) → sets up <Elements> provider
  * - PaymentForm (inner) → uses the Stripe hooks
  */
-const PaymentForm = ({ contract, clientSecret }) => {
+const PaymentForm = ({ contract, clientSecret, queryClient }) => {
   /*
    * useStripe() gives us the stripe object.
    * We use stripe.confirmCardPayment() to process the payment.
@@ -129,13 +129,19 @@ const PaymentForm = ({ contract, clientSecret }) => {
       /*
        * Payment succeeded on Stripe's side!
        *
-       * NOTE: At this point, our webhook hasn't fired yet.
-       * The contract status is still "pending_payment" in our DB.
-       * The webhook will update it to "funded" in a few seconds.
-       *
-       * We navigate to ContractDetailPage and show a success message.
-       * The page will show "funded" status after the webhook fires.
+       * For local development, we manually update the contract status
+       * since Stripe can't send webhooks to localhost.
        */
+      try {
+        await manuallyFundContract(contract._id);
+        // Invalidate the contract query so the next page fetches fresh data
+        queryClient.invalidateQueries(["contract", contract._id]);
+        queryClient.invalidateQueries(["myContracts"]);
+        queryClient.invalidateQueries(["authUser"]);
+      } catch (err) {
+        console.error("Failed to manually fund contract:", err);
+      }
+      
       toast.success("Payment successful! Contract is now funded 🎉");
       navigate(`/contracts/${contract._id}`);
     }
@@ -217,6 +223,7 @@ const PaymentForm = ({ contract, clientSecret }) => {
 const PaymentPage = () => {
   const { contractId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // clientSecret state — fetched from our backend
   const [clientSecret, setClientSecret] = useState(null);
@@ -320,7 +327,11 @@ const PaymentPage = () => {
             stripe={stripePromise}
             options={{ clientSecret }}
           >
-            <PaymentForm contract={contract} clientSecret={clientSecret} />
+            <PaymentForm 
+              contract={contract} 
+              clientSecret={clientSecret} 
+              queryClient={queryClient}
+            />
           </Elements>
         </div>
 
