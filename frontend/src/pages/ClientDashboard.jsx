@@ -163,23 +163,23 @@ const ClientDashboard = () => {
 
         {/* Jobs Table */}
         {jobs.length > 0 && (
-          <div className="overflow-hidden border rounded-2xl border-slate-800">
-            <table className="w-full">
+          <div className="overflow-x-auto border rounded-2xl border-slate-800">
+            <table className="min-w-full">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-900/50">
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
                     Job Title
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
                     Budget
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
                     Status
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
                     Posted
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider text-right uppercase text-slate-400">
+                  <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-right uppercase text-slate-400">
                     Actions
                   </th>
                 </tr>
@@ -187,7 +187,7 @@ const ClientDashboard = () => {
               <tbody className="divide-y divide-slate-800 bg-slate-900">
                 {jobs.map((job) => (
                   <tr key={job._id} className="transition hover:bg-slate-800/50">
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <p className="font-medium text-white line-clamp-1">{job.title}</p>
                       {job.assignedTo && (
                         <p className="mt-0.5 text-xs text-slate-500">
@@ -195,19 +195,19 @@ const ClientDashboard = () => {
                         </p>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <div className="flex items-center gap-1 text-green-400">
                         <DollarSign size={13} />
                         <span className="font-medium">{job.budget}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <StatusBadge status={job.status} />
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-400">
+                    <td className="px-4 sm:px-6 py-4 text-sm text-slate-400">
                       {new Date(job.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           to={`/jobs/${job._id}`}
@@ -256,23 +256,23 @@ const ClientDashboard = () => {
         {contracts.length > 0 && (
           <div className="mt-10">
             <h2 className="mb-4 text-2xl font-bold text-white">My Contracts</h2>
-            <div className="overflow-hidden border rounded-2xl border-slate-800">
-              <table className="w-full">
+            <div className="overflow-x-auto border rounded-2xl border-slate-800">
+              <table className="min-w-full">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-900/50">
-                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                    <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
                       Job
                     </th>
-                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                    <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
                       Freelancer
                     </th>
-                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                    <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
                       Amount
                     </th>
-                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
+                    <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-left uppercase text-slate-400">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-xs font-semibold tracking-wider text-right uppercase text-slate-400">
+                    <th className="px-4 sm:px-6 py-4 text-xs font-semibold tracking-wider text-right uppercase text-slate-400">
                       Actions
                     </th>
                   </tr>
@@ -280,7 +280,7 @@ const ClientDashboard = () => {
                 <tbody className="divide-y divide-slate-800 bg-slate-900">
                   {contracts.map((contract) => (
                     <tr key={contract._id} className="transition hover:bg-slate-800/50">
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-4">
                         <p className="font-medium text-white line-clamp-1">{contract.job?.title}</p>
                         {(contract.status === "refund_requested" || contract.status === "refunded") && contract.refundReason && (
                           <p className="mt-1 text-xs text-slate-500 line-clamp-2">
@@ -293,19 +293,19 @@ const ClientDashboard = () => {
                           </p>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-4">
                         <p className="text-sm text-slate-300">{contract.freelancer?.name}</p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-4">
                         <div className="flex items-center gap-1 text-green-400">
                           <DollarSign size={13} />
                           <span className="font-medium">{contract.agreedAmount}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-4">
                         <ContractStatusBadge status={contract.status} />
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 sm:px-6 py-4">
                         <div className="flex items-center justify-end">
                           <Link
                             to={`/contracts/${contract._id}`}
